@@ -1,0 +1,1233 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Сухой трансформатор: интерактивная разборка</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --bg1:#2a3242; --bg2:#0e1117;
+    --card:rgba(20,24,32,.82); --line:rgba(255,255,255,.08);
+    --text:#e9edf4; --muted:#97a1b2;
+    --accent:#4da3ff; --accent2:#2f7fe0;
+    --ok:#2ecc71; --bad:#ff5d5d; --warn:#ffb648;
+    --lw:370px; --rw:280px; --gap:16px;
+  }
+  @media (max-width: 1280px) { :root { --lw:330px; --rw:250px; } }
+
+  * { box-sizing:border-box; }
+  html, body { margin:0; height:100%; overflow:hidden; }
+  body {
+    font-family:'Inter', system-ui, 'Segoe UI', Arial, sans-serif; color:var(--text);
+    background:radial-gradient(ellipse at 50% 40%, var(--bg1), var(--bg2) 75%);
+    -webkit-tap-highlight-color:transparent;
+  }
+  canvas { display:block; position:absolute; inset:0; z-index:0; touch-action:none; }
+  button { font:inherit; color:inherit; }
+  .hidden { display:none !important; }
+
+  .card {
+    background:var(--card); border:1px solid var(--line); border-radius:16px;
+    backdrop-filter:blur(14px); -webkit-backdrop-filter:blur(14px);
+    box-shadow:0 12px 32px rgba(0,0,0,.35); z-index:5;
+  }
+  .mid-x { left:calc(var(--gap) * 2 + var(--lw) + (100% - var(--lw) - var(--rw) - var(--gap) * 4) / 2);
+           transform:translateX(-50%); }
+
+  #left { position:absolute; top:var(--gap); left:var(--gap); bottom:var(--gap); width:var(--lw);
+          display:flex; flex-direction:column; overflow:hidden; }
+  .brand { padding:18px 20px 16px; border-bottom:1px solid var(--line); flex:none; }
+  .brand h1 { margin:0; font-size:17px; font-weight:700; }
+  .brand p { margin:4px 0 0; font-size:12.5px; color:var(--muted); }
+  #sheetHandle, #tabs, #listPane { display:none; }
+  .pane { flex:1; min-height:0; overflow:auto; }
+  #info { padding:20px; }
+
+  .eyebrow { font-size:11px; font-weight:600; letter-spacing:.5px; text-transform:uppercase; color:var(--accent); }
+  .info-head { display:flex; align-items:center; justify-content:space-between; gap:10px; }
+  .x { width:30px; height:30px; flex:none; border-radius:8px; border:0; background:rgba(255,255,255,.06);
+       font-size:18px; line-height:1; cursor:pointer; }
+  .x:hover { background:rgba(255,255,255,.14); }
+  .title { margin:6px 0 14px; font-size:21px; line-height:1.25; font-weight:700; }
+  .lead { margin:0 0 18px; font-size:14px; line-height:1.55; color:#c9d1de; }
+  .sub { font-size:12px; color:var(--muted); margin-bottom:8px; }
+  .chips { display:flex; flex-wrap:wrap; gap:6px; margin-bottom:18px; }
+  .chip { border:1px solid rgba(77,163,255,.35); background:rgba(77,163,255,.1); color:#cfe4ff;
+          padding:6px 10px; border-radius:20px; font-size:13px; cursor:pointer; }
+  .chip:hover { background:rgba(77,163,255,.22); }
+  .keys { font-size:12px; color:var(--muted); line-height:1.9; }
+  kbd { display:inline-block; min-width:22px; padding:1px 6px; border-radius:5px; text-align:center;
+        background:rgba(255,255,255,.08); border:1px solid var(--line); font:inherit; font-size:11px; color:var(--text); }
+
+  .row { display:flex; gap:6px; flex-wrap:wrap; margin-bottom:4px; }
+  .btn { border:1px solid var(--line); background:rgba(255,255,255,.06); padding:7px 11px;
+         border-radius:9px; font-size:13px; cursor:pointer; transition:background .15s; }
+  .btn:hover { background:rgba(255,255,255,.12); }
+  .btn.primary { background:var(--accent2); border-color:var(--accent2); }
+  .btn.primary:hover { background:var(--accent); }
+  .btn.on { background:rgba(77,163,255,.25); border-color:var(--accent); }
+  .sec { margin-top:16px; }
+  .sec h5 { margin:0 0 5px; font-size:11px; font-weight:600; letter-spacing:.5px;
+            text-transform:uppercase; color:var(--accent); }
+  .sec.faults h5 { color:var(--bad); }
+  .sec.tip h5 { color:var(--warn); }
+  .sec p { margin:0; font-size:14px; line-height:1.6; color:#cfd6e2; }
+  .sec.tip { background:rgba(255,182,72,.08); border:1px solid rgba(255,182,72,.2);
+             border-radius:10px; padding:10px 12px; }
+
+  #right { position:absolute; top:var(--gap); right:var(--gap); bottom:var(--gap); width:var(--rw);
+           display:flex; flex-direction:column; overflow:hidden; }
+  #listWrap { display:flex; flex-direction:column; min-height:0; flex:1; }
+  .side-h { display:flex; align-items:center; justify-content:space-between; padding:16px 16px 6px; flex:none; }
+  .side-h h4 { margin:0; font-size:12px; font-weight:600; color:var(--muted);
+               text-transform:uppercase; letter-spacing:.5px; }
+  .link { background:none; border:0; color:var(--accent); font-size:13px; cursor:pointer; padding:0; }
+  #list { overflow:auto; padding:0 8px 14px; flex:1; min-height:0; }
+  .grp-h { display:flex; align-items:center; gap:8px; margin:12px 8px 4px; font-size:12px;
+           color:var(--muted); cursor:pointer; line-height:1.3; }
+  .grp-h .num { min-width:22px; height:22px; border-radius:7px; display:grid; place-items:center; flex:none;
+                background:rgba(255,255,255,.08); font-weight:600; color:var(--text); }
+  .grp-h.done .num { background:var(--accent2); }
+  .grp-h:hover { color:var(--text); }
+  .item { display:flex; align-items:center; gap:10px; padding:7px 10px 7px 38px; border-radius:9px;
+          font-size:13.5px; cursor:pointer; transition:background .12s; position:relative; }
+  .item::before { content:''; position:absolute; left:16px; width:6px; height:6px; border-radius:50%; background:#5b6576; }
+  .item.removed::before { background:var(--accent); }
+  .item:hover { background:rgba(255,255,255,.06); }
+  .item.sel { background:rgba(77,163,255,.18); }
+  .item.hidden-part { opacity:.35; text-decoration:line-through; }
+
+  #toolbar { position:absolute; top:var(--gap); display:flex; gap:2px; padding:5px; }
+  .tb { display:flex; align-items:center; gap:6px; background:transparent; border:0; font-size:13px;
+        padding:8px 11px; border-radius:10px; cursor:pointer; white-space:nowrap; transition:background .15s; }
+  a.tb { text-decoration:none; color:inherit; }
+  .tb svg { width:16px; height:16px; flex:none; }
+  .tb:hover { background:rgba(255,255,255,.08); }
+  .tb.on { background:var(--accent2); }
+
+  #stepbar { position:absolute; bottom:var(--gap);
+             width:min(600px, calc(100% - var(--lw) - var(--rw) - var(--gap) * 6));
+             display:flex; align-items:center; gap:14px; padding:12px 14px; }
+  .nav { width:44px; height:44px; flex:none; border-radius:50%; border:0; background:var(--accent2);
+         font-size:22px; cursor:pointer; transition:background .15s, opacity .15s; }
+  .nav:hover { background:var(--accent); }
+  .nav:disabled { opacity:.3; cursor:default; }
+  .mid { flex:1; min-width:0; text-align:center; }
+  #stepNum { font-size:11px; font-weight:600; letter-spacing:.5px; text-transform:uppercase; color:var(--accent); }
+  #stepTitle { font-size:14.5px; font-weight:600; margin-top:3px; }
+  #dots { display:flex; gap:5px; justify-content:center; margin-top:9px; }
+  .dot { width:22px; height:6px; border-radius:3px; background:rgba(255,255,255,.15); cursor:pointer;
+         transition:background .2s; }
+  .dot.done { background:var(--accent2); }
+  .dot.cur { background:#fff; }
+
+  #lines, #link { position:absolute; inset:0; width:100%; height:100%; pointer-events:none; }
+  #lines { z-index:1; }
+  #link { z-index:4; }
+  #lines polyline { fill:none; stroke:rgba(255,255,255,.55); stroke-width:1; }
+  #lines circle { fill:#fff; }
+  #lines g.dim { opacity:.3; }
+  #link polyline { fill:none; stroke:var(--accent); stroke-width:1.5; }
+  #link circle { fill:var(--accent); }
+  #labels { position:absolute; inset:0; pointer-events:none; z-index:2; }
+  .label { position:absolute; left:0; top:0; padding:4px 9px; font-size:12px; font-weight:500;
+           white-space:nowrap; border-radius:8px; cursor:pointer; pointer-events:auto;
+           background:rgba(14,17,23,.85); border:1px solid rgba(255,255,255,.14);
+           transition:background .15s, border-color .15s, opacity .15s; }
+  .label:hover { border-color:var(--accent); opacity:1; }
+  .label.next { border-color:var(--accent); color:#cfe4ff; }
+  .label.sel { background:var(--accent2); border-color:var(--accent); color:#fff; }
+  .label.dim { opacity:.35; }
+
+  #quiz { position:absolute; top:78px; padding:14px 18px; text-align:center; min-width:300px; }
+  #quizQ { font-size:17px; }
+  #quizQ b { color:var(--accent); }
+  #quizScore { font-size:12px; color:var(--muted); margin:6px 0 10px; }
+  #quiz .row { justify-content:center; }
+
+  #toast { position:absolute; bottom:120px;
+           left:calc(var(--gap) * 2 + var(--lw) + (100% - var(--lw) - var(--rw) - var(--gap) * 4) / 2);
+           transform:translate(-50%, 10px); padding:10px 16px; border-radius:12px; font-size:14px;
+           font-weight:600; opacity:0; pointer-events:none; transition:opacity .2s, transform .2s; z-index:8;
+           max-width:calc(100% - 32px); text-align:center; }
+  #toast.show { opacity:1; transform:translate(-50%, 0); }
+  #toast.ok { background:var(--ok); color:#06210f; }
+  #toast.bad { background:var(--bad); color:#2a0505; }
+  #toast.info { background:var(--accent2); color:#fff; }
+
+  #loading { position:absolute; inset:0; display:flex; flex-direction:column; gap:14px;
+             align-items:center; justify-content:center; z-index:10; color:var(--muted); }
+  .spinner { width:38px; height:38px; border-radius:50%; border:3px solid rgba(255,255,255,.15);
+             border-top-color:var(--accent); animation:spin 1s linear infinite; }
+  @keyframes spin { to { transform:rotate(360deg); } }
+
+  @media (max-width: 900px) {
+    body { --sheet:42vh; }
+    body.sheet-open { --sheet:78vh; }
+
+    #right, #link, .desk { display:none !important; }
+
+    #left { top:auto; left:0; right:0; bottom:0; width:auto; height:var(--sheet);
+            border-radius:18px 18px 0 0; border-bottom:0; transition:height .25s ease; }
+    .brand { display:none; }
+    #sheetHandle { display:flex; justify-content:center; padding:8px 0 4px; flex:none; cursor:pointer; border:0; background:none; width:100%; }
+    #sheetHandle span { width:40px; height:5px; border-radius:3px; background:rgba(255,255,255,.25); }
+    #tabs { display:flex; gap:4px; padding:4px 12px 10px; flex:none; border-bottom:1px solid var(--line); }
+    #tabs button { flex:1; border:0; background:rgba(255,255,255,.05); padding:9px; border-radius:10px;
+                   font-size:13.5px; font-weight:500; cursor:pointer; }
+    #tabs button.on { background:var(--accent2); }
+    #listPane { display:flex; flex-direction:column; }
+    #left[data-tab="info"] #listPane { display:none; }
+    #left[data-tab="list"] #info { display:none; }
+    #info { padding:16px; }
+    .title { font-size:19px; }
+
+    #toolbar { top:calc(8px + env(safe-area-inset-top)); left:8px; right:8px; transform:none;
+               overflow-x:auto; scrollbar-width:none; }
+    #toolbar::-webkit-scrollbar { display:none; }
+    .tb { padding:8px 10px; font-size:12.5px; }
+
+    #stepbar { left:8px; right:8px; width:auto; transform:none; bottom:calc(var(--sheet) + 8px);
+               padding:8px 10px; gap:8px; transition:bottom .25s ease; }
+    .nav { width:38px; height:38px; font-size:18px; }
+    #stepNum { font-size:10px; }
+    #stepTitle { font-size:13px; }
+    #dots { display:none; }
+
+    #quiz { top:64px; left:8px; right:8px; transform:none; min-width:0; }
+    #toast { left:50%; bottom:calc(var(--sheet) + 76px); }
+  }
+</style>
+</head>
+<body>
+
+<div id="loading"><div class="spinner"></div><span id="loadText">Загрузка модели…</span></div>
+
+<svg id="lines"></svg>
+<div id="labels"></div>
+<svg id="link"><polyline id="linkLine"></polyline><circle id="linkDot" r="0"></circle></svg>
+
+<aside id="left" class="card" data-tab="info">
+  <button id="sheetHandle" aria-label="Развернуть панель"><span></span></button>
+  <header class="brand">
+    <h1>Сухой трансформатор с литой изоляцией</h1>
+    <p id="subtitle">Интерактивная разборка</p>
+  </header>
+  <div id="tabs">
+    <button data-tab="info" class="on">Описание</button>
+    <button data-tab="list">Все детали</button>
+  </div>
+  <div id="info" class="pane"></div>
+  <div id="listPane" class="pane"></div>
+</aside>
+
+<aside id="right" class="card">
+  <div id="listWrap">
+    <div class="side-h"><h4 id="listTitle">Детали</h4><button class="link" id="showAll">Показать все</button></div>
+    <div id="list"></div>
+  </div>
+</aside>
+
+<nav id="toolbar" class="card mid-x">
+  <a class="tb" href="index.html" title="Все устройства">
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M15 18l-6-6 6-6"/></svg>
+    <span>Каталог</span>
+  </a>
+  <button class="tb" id="btnExplode">
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M15 3h6v6M9 21H3v-6M21 3l-7 7M3 21l7-7"/></svg>
+    <span>Разобрать</span>
+  </button>
+  <button class="tb" id="btnHints" title="Клавиша H">
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M20.6 13.4l-7.2 7.2a2 2 0 0 1-2.8 0L3 13V3h10l7.6 7.6a2 2 0 0 1 0 2.8z"/><circle cx="7.5" cy="7.5" r="1.5"/></svg>
+    <span>Подписи</span>
+  </button>
+  <button class="tb" id="btnXray" title="Клавиша X">
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 7V5a2 2 0 0 1 2-2h2M17 3h2a2 2 0 0 1 2 2v2M21 17v2a2 2 0 0 1-2 2h-2M7 21H5a2 2 0 0 1-2-2v-2"/><circle cx="12" cy="12" r="3"/></svg>
+    <span>Рентген</span>
+  </button>
+  <button class="tb" id="btnRotate">
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 12a9 9 0 1 1-3-6.7L21 8"/><path d="M21 3v5h-5"/></svg>
+    <span>Вращение</span>
+  </button>
+  <button class="tb" id="btnHome">
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 11l9-8 9 8"/><path d="M5 10v10h14V10"/></svg>
+    <span>Вид</span>
+  </button>
+  <button class="tb" id="btnQuiz">
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"/><path d="M8 12l3 3 5-6"/></svg>
+    <span id="btnQuizText">Тест</span>
+  </button>
+</nav>
+
+<footer id="stepbar" class="card mid-x">
+  <button class="nav" id="prev" aria-label="Предыдущий шаг">‹</button>
+  <div class="mid">
+    <div id="stepNum"></div>
+    <div id="stepTitle"></div>
+    <div id="dots"></div>
+  </div>
+  <button class="nav" id="next" aria-label="Следующий шаг">›</button>
+</footer>
+
+<div id="quiz" class="card mid-x hidden">
+  <div id="quizQ"></div>
+  <div id="quizScore"></div>
+  <div class="row">
+    <button class="btn primary hidden" id="quizAgain">Ещё раз</button>
+    <button class="btn" id="quizExit">Выйти из теста</button>
+  </div>
+</div>
+
+<div id="toast"></div>
+
+<!-- Для LMS без интернета заменить пути на локальные: ./libs/three/build/... и ./libs/three/examples/jsm/ -->
+<script type="importmap">
+{ "imports": {
+  "three": "https://cdn.jsdelivr.net/npm/three@0.160.0/build/three.module.js",
+  "three/addons/": "https://cdn.jsdelivr.net/npm/three@0.160.0/examples/jsm/"
+}}
+</script>
+
+<script type="module">
+import * as THREE from 'three';
+import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
+import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js';
+import { RoomEnvironment } from 'three/addons/environments/RoomEnvironment.js';
+
+const MODEL_URL = 'tr_dry.glb';
+const AXIS = new THREE.Vector3(0, 1, 0);
+const PASS_SCORE = 80;
+const BASE_LABEL = 'Неподвижная часть';
+
+// Направления разлёта в координатах сайта: X – вдоль фаз, Y – вверх, Z – вперёд (к зрителю)
+// what – что это, why – зачем нужно, how – устройство, faults – неисправности, tip – при разборке
+const PARTS = {
+  hv_terminals: {
+    name:'Вводы ВН', step:1, dir:[0,1,0], dist:1.0,
+    what:'Опорные изоляторы с контактными выводами фаз A, B, C для подключения кабелей высокого напряжения (6 или 10 кВ).',
+    why:'Через них к трансформатору подводится сеть ВН. Изоляторы отделяют токоведущие выводы от заземлённых металлических частей.',
+    how:'Эпоксидные или фарфоровые изоляторы с рёбрами («юбками»), которые удлиняют путь утечки по поверхности. Сверху латунный или медный контактный вывод. Изоляторы закреплены на кронштейне.',
+    faults:'Загрязнение и трещины изоляторов приводят к поверхностным разрядам. Ослабленный контакт нагревается, это хорошо видно тепловизором.',
+    tip:'Перед любыми работами отключите трансформатор и со стороны ВН, и со стороны НН, проверьте отсутствие напряжения и установите заземления. Со стороны НН возможна обратная трансформация, и тогда на выводах ВН появится высокое напряжение.'
+  },
+  hv_delta: {
+    name:'Шины «треугольник» ВН', step:1, dir:[0,0,1], dist:1.6,
+    what:'Медные трубчатые перемычки, соединяющие выводы обмоток ВН разных фаз.',
+    why:'Соединяют обмотки ВН в схему «треугольник»: конец фазы A с началом B, конец B с началом C, конец C с началом A. Для распределительных сухих трансформаторов самая распространённая группа соединения Д/Ун-11: ВН «треугольник», НН «звезда» с выведенной нейтралью.',
+    how:'Медные или алюминиевые трубы и шины с болтовыми соединениями на выводах обмоток.',
+    faults:'Ослабление болтовых соединений вызывает нагрев и потемнение контактных поверхностей.',
+    tip:'Перед отсоединением сфотографируйте схему соединений. При сборке затягивайте болты с моментом, указанным в инструкции завода.'
+  },
+  tap_links: {
+    name:'Перемычки ПБВ', step:1, dir:[0,0,1], dist:1.9,
+    what:'Съёмные перемычки на приливе каждой обмотки ВН, которые подключают нужные ответвления (отпайки) обмотки.',
+    why:'Позволяют подстроить напряжение на стороне НН, изменяя число витков обмотки ВН, обычно ступенями ±2×2,5%. ПБВ означает «переключение без возбуждения»: переставлять перемычки можно только на полностью отключённом трансформаторе.',
+    how:'На приливе литой обмотки выведены латунные шпильки ответвлений. Перемычка соединяет пару шпилек, и это пара задаёт ступень напряжения.',
+    faults:'Если перемычки на фазах стоят в разных положениях, напряжения получаются несимметричными. Ослабленная перемычка греется.',
+    tip:'Переставляйте только на отключённом и заземлённом трансформаторе и обязательно в одинаковое положение на всех трёх фазах.'
+  },
+  lv_busbars: {
+    name:'Шины НН', step:2, dir:[0,0.4,-1], dist:1.6,
+    what:'Медные шины выводов обмоток низкого напряжения: фазы a, b, c. Нейтраль обычно выводится отдельной четвёртой шиной.',
+    why:'Подключают трансформатор к шинам распределительного щита 0,4 кВ. Токи здесь большие: у трансформатора 1000 кВА номинальный ток на стороне 0,4 кВ около 1445 А.',
+    how:'Прямоугольные медные или алюминиевые шины с отверстиями под болтовые соединения.',
+    faults:'Перегрев и окисление контактных соединений, ослабление болтов от вибрации и циклов нагрева.',
+    tip:'При сборке зачистите контактные поверхности, нанесите контактную смазку и затяните болты динамометрическим ключом.'
+  },
+  temp_sensors: {
+    name:'Датчики температуры', step:3, dir:[0,1,0], dist:1.3,
+    what:'Термосопротивления Pt100 (или PTC-термисторы), установленные в верхней части обмоток НН, где обмотка нагревается сильнее всего.',
+    why:'Передают температуру обмоток в блок температурной защиты. Тот по заданным уставкам включает вентиляторы, подаёт сигнал перегрева и отключает трансформатор. Изоляция сухих трансформаторов обычно класса нагревостойкости F (155 °C) или H (180 °C).',
+    how:'Чувствительный элемент в защитной гильзе и провод, проложенный к блоку защиты.',
+    faults:'Обрыв датчика или провода даёт неверные показания или ложное отключение.',
+    tip:'Обращайтесь с проводами аккуратно. Исправность датчика проверяют омметром: у Pt100 сопротивление около 100 Ом при 0 °C и около 108 Ом при 20 °C.'
+  },
+  fan_front: {
+    name:'Вентилятор обдува (передний)', step:3, dir:[0,0,1], dist:0.9,
+    what:'Тангенциальный (диаметральный) вентилятор под обмотками со стороны ВН.',
+    why:'Даёт принудительное воздушное охлаждение: продувает воздух снизу вверх через каналы между обмотками. Это позволяет временно повысить нагрузку трансформатора, обычно до 40% сверх номинальной.',
+    how:'Длинная крыльчатка в кожухе с решёткой и приводной электродвигатель. Включается автоматически блоком температурной защиты.',
+    faults:'Износ подшипников, забитая пылью крыльчатка, неисправность цепи управления.',
+    tip:'При обслуживании проверьте свободное вращение крыльчатки и очистите её от пыли.'
+  },
+  fan_back: {
+    name:'Вентилятор обдува (задний)', step:3, dir:[0,0,-1], dist:0.9,
+    what:'Тангенциальный вентилятор под обмотками со стороны НН.',
+    why:'Работает в паре с передним и обдувает обмотки с другой стороны, чтобы все фазы охлаждались равномерно.',
+    how:'Такой же по устройству, как передний.',
+    faults:'Те же, что у переднего: износ, загрязнение, неисправность управления.',
+    tip:'Вентиляторы проверяют вместе: при включении от блока защиты должны запускаться оба.'
+  },
+  clamps_top: {
+    name:'Верхние ярмовые балки', step:4, dir:[0,1,0], dist:1.0,
+    what:'Стальные швеллеры по обе стороны верхнего ярма.',
+    why:'Стягивают пластины ярма, через распорки прижимают обмотки (осевая прессовка) и держат их при электродинамических усилиях от короткого замыкания. На них же закреплены подъёмные проушины.',
+    how:'Пара стальных швеллеров, стянутых шпильками с нижними балками. Балки заземляются.',
+    faults:'Ослабление прессовки вызывает гул и вибрацию, а при коротком замыкании возможно смещение обмоток.',
+    tip:'При сборке восстановите усилие прессовки по инструкции завода и проверьте перемычку заземления балок.'
+  },
+  lifting_lugs: {
+    name:'Подъёмные проушины', step:4, with:'clamps_top', dist:0,
+    what:'Проушины на верхних балках для строповки трансформатора.',
+    why:'Поднимать трансформатор можно только за них: так нагрузка передаётся на силовую раму, а не на обмотки.',
+    how:'Стальные пластины с отверстием под скобу, приварены или привёрнуты к верхним балкам.',
+    faults:'Трещины, деформация от неправильной строповки.',
+    tip:'Угол между стропами не должен превышать указанный в паспорте, обычно до 60°. Никогда не стропите за обмотки и выводы.'
+  },
+  tie_rods: {
+    name:'Стяжные шпильки', step:4, dir:[0,1,0], dist:1.0,
+    what:'Вертикальные шпильки, соединяющие верхние и нижние ярмовые балки.',
+    why:'Создают усилие прессовки обмоток и делают всю конструкцию жёсткой.',
+    how:'Стальные шпильки с гайками по краям балок.',
+    faults:'Ослабление гаек ведёт к потере прессовки, гулу и вибрации.',
+    tip:'Затягивайте равномерно, по диагонали, контролируя одинаковое усилие на всех шпильках.'
+  },
+  yoke_top: {
+    name:'Верхнее ярмо', step:5, dir:[0,1,0], dist:0.5,
+    what:'Верхняя часть магнитопровода, которая замыкает стержни сверху.',
+    why:'Замыкает магнитный поток между тремя стержнями. Без ярма магнитная цепь разомкнута, и трансформатор не работает.',
+    how:'Пакет пластин холоднокатаной электротехнической стали толщиной 0,23–0,3 мм. Пластины стыкуются со стержнями «косым стыком» (step-lap), что снижает потери и шум холостого хода.',
+    faults:'Повреждение изоляции между пластинами вызывает местный перегрев («пожар стали») и рост тока холостого хода. Ослабленная стяжка гудит.',
+    tip:'Чтобы снять обмотки, верхнее ярмо расшихтовывают, то есть разбирают по пластинам. Раскладывайте пластины строго по порядку и не гните их. В модели ярмо для наглядности снимается целиком.'
+  },
+  spacers_top: {
+    name:'Верхние распорки', step:6, dir:[0,1,0], dist:0.3,
+    what:'Упругие прокладки между верхними торцами обмоток и ярмовыми балками.',
+    why:'Фиксируют обмотки, передают на них усилие прессовки, гасят вибрацию и изолируют обмотки от заземлённых балок.',
+    how:'Блоки из силиконовой резины или эпоксидного материала, по нескольку на каждую обмотку.',
+    faults:'Со временем распорки стареют, теряют упругость и трескаются. Прессовка ослабевает, появляется гул.',
+    tip:'Распорки, потерявшие упругость, заменяйте. При сборке ставьте их на прежние места.'
+  },
+  hv_windings: {
+    name:'Обмотки ВН', step:7, dir:[0,0,1], dist:1.2,
+    what:'Обмотки высокого напряжения (6 или 10 кВ), залитые в вакууме эпоксидным компаундом. Отсюда название «литая изоляция».',
+    why:'Принимают энергию из сети ВН. Витков в них много, а ток небольшой. Отношение напряжений ВН и НН — коэффициент трансформации: например, 10 000 / 400 = 25.',
+    how:'Алюминиевый или медный провод (лента), уложенный слоями и залитый эпоксидной смолой с наполнителем. Такая изоляция не боится влаги, трудногорюча и не требует масла. Между обмотками ВН и НН оставлен вертикальный воздушный канал для охлаждения.',
+    faults:'Трещины в литой изоляции, частичные разряды, межвитковые замыкания. Загрязнённая поверхность вызывает поверхностные разряды.',
+    tip:'Изоляцию ВН проверяют мегаомметром на 2500 В. Обмотку поднимайте только специальными захватами и берегите от ударов: трещину в литой изоляции не отремонтировать.'
+  },
+  lv_windings: {
+    name:'Обмотки НН', step:8, dir:[0,0,-1], dist:1.2,
+    what:'Обмотки низкого напряжения 0,4 кВ, расположенные ближе всего к стержням магнитопровода.',
+    why:'Отдают энергию потребителю. Витков мало, ток большой. Ближе к стержню их ставят потому, что напряжение НН относительно заземлённого магнитопровода невелико и изолировать их проще.',
+    how:'Обычно из алюминиевой или медной фольги шириной на всю высоту обмотки, с межслойной изоляцией из препрега. После запекания обмотка становится монолитной. Фольга хорошо выдерживает осевые усилия при коротком замыкании.',
+    faults:'Перегрев, межслойное замыкание, ослабление соединений выводов.',
+    tip:'Изоляцию проверяют мегаомметром на 1000 В. Сопротивление обмоток постоянному току измеряют микроомметром: разница между фазами обычно не должна превышать 2%.'
+  },
+  spacers_bottom: {
+    name:'Нижние распорки', step:9, dir:[0,1,0], dist:0.35,
+    what:'Упругие прокладки между нижними торцами обмоток и нижними ярмовыми балками.',
+    why:'На них опираются обмотки. Распорки центрируют обмотки, гасят вибрацию и изолируют их от балок.',
+    how:'Блоки из силиконовой резины или эпоксидного материала.',
+    faults:'Старение и растрескивание, обмотки проседают и смещаются.',
+    tip:'При сборке проверьте, что все распорки на месте и обмотки стоят соосно стержням.'
+  },
+  core: {
+    name:'Магнитопровод', step:99,
+    what:'Трёхстержневой шихтованный сердечник: три вертикальных стержня (по одному на фазу) и нижнее ярмо.',
+    why:'Проводит магнитный поток и связывает обмотки ВН и НН. Именно через магнитопровод энергия передаётся из одной обмотки в другую.',
+    how:'Пластины холоднокатаной электротехнической стали 0,23–0,3 мм с изоляционным покрытием. Сечение стержня ступенчатое, вписанное в круг, чтобы лучше заполнить круглую обмотку. Магнитопровод заземляется строго в одной точке.',
+    faults:'«Пожар стали» — замыкание пластин с местным перегревом. Если магнитопровод заземлён в нескольких точках, по контуру текут циркулирующие токи. Ослабленная стяжка гудит.',
+    tip:'Проверьте, что магнитопровод заземлён ровно в одной точке. Дефекты стали выявляют измерением тока и потерь холостого хода.'
+  },
+  clamps_bottom: {
+    name:'Нижние ярмовые балки', step:99,
+    what:'Стальные швеллеры по обе стороны нижнего ярма.',
+    why:'Стягивают нижнее ярмо, служат опорой для обмоток (через распорки) и крепят активную часть к основанию.',
+    how:'Пара швеллеров, связанных стяжными шпильками с верхними балками.',
+    faults:'Ослабление креплений, нарушение заземления.',
+    tip:'Проверьте затяжку крепления к основанию и целостность заземления.'
+  },
+  base: {
+    name:'Основание', step:99,
+    what:'Опорная рама трансформатора.',
+    why:'Несёт всю активную часть и вентиляторы и крепит трансформатор к полу. На основании находится болт заземления.',
+    how:'Стальные балки, окрашенные; к ним крепятся катки.',
+    faults:'Коррозия, ослабление креплений.',
+    tip:'Заземление корпуса трансформатора обязательно: проверьте надёжность присоединения заземляющего проводника.'
+  },
+  wheels: {
+    name:'Катки', step:99,
+    what:'Транспортные ролики под основанием.',
+    why:'Позволяют перекатывать трансформатор при монтаже. Обычно их можно переставить для продольного или поперечного перемещения.',
+    how:'Стальные или обрезиненные ролики на осях.',
+    faults:'Заклинивание осей, повреждение роликов.',
+    tip:'На месте установки трансформатор фиксируют упорами или снимают катки, чтобы он не смещался от вибрации.'
+  }
+};
+
+const STEPS = [
+  'Трансформатор в сборе',
+  'Снять вводы ВН, шины «треугольник» и перемычки ПБВ',
+  'Отсоединить шины НН',
+  'Снять датчики температуры и вентиляторы',
+  'Снять верхние ярмовые балки и стяжные шпильки',
+  'Расшихтовать верхнее ярмо',
+  'Убрать верхние распорки',
+  'Снять обмотки ВН',
+  'Снять обмотки НН',
+  'Убрать нижние распорки'
+];
+
+const $ = id => document.getElementById(id);
+const SEL_COLOR = 0x1a4fb8;
+const mq = matchMedia('(max-width: 900px)');
+const isMobile = () => mq.matches;
+
+// ================= SCORM 1.2 =================
+const SCORM = (() => {
+  const start = Date.now();
+  let api = null, status = '', best = -1, done = false;
+  function find(w) {
+    for (let i = 0; i < 10 && w; i++) {
+      try { if (w.API) return w.API; } catch (e) { return null; }
+      if (w.parent === w) break;
+      w = w.parent;
+    }
+    return null;
+  }
+  try { api = find(window) || (window.opener ? find(window.opener) : null); } catch (e) { api = null; }
+  const set = (k, v) => api && api.LMSSetValue(k, String(v));
+  const fmt = ms => {
+    const s = Math.floor(ms / 1000);
+    return `${String(Math.floor(s / 3600)).padStart(4, '0')}:${String(Math.floor(s % 3600 / 60)).padStart(2, '0')}:${String(s % 60).padStart(2, '0')}`;
+  };
+  return {
+    init() {
+      if (!api) return;
+      api.LMSInitialize('');
+      status = api.LMSGetValue('cmi.core.lesson_status');
+      best = parseFloat(api.LMSGetValue('cmi.core.score.raw'));
+      if (isNaN(best)) best = -1;
+      if (!status || status === 'not attempted') { status = 'incomplete'; set('cmi.core.lesson_status', status); }
+      api.LMSCommit('');
+    },
+    completed() {
+      if (!api || ['completed', 'passed', 'failed'].includes(status)) return;
+      status = 'completed';
+      set('cmi.core.lesson_status', status);
+      api.LMSCommit('');
+    },
+    score(ok, total) {
+      if (!api) return;
+      const pct = Math.round(ok / total * 100);
+      if (pct < best) return;
+      best = pct;
+      set('cmi.core.score.min', 0);
+      set('cmi.core.score.max', 100);
+      set('cmi.core.score.raw', pct);
+      status = pct >= PASS_SCORE ? 'passed' : 'failed';
+      set('cmi.core.lesson_status', status);
+      api.LMSCommit('');
+    },
+    finish() {
+      if (!api || done) return;
+      done = true;
+      set('cmi.core.session_time', fmt(Date.now() - start));
+      api.LMSCommit('');
+      api.LMSFinish('');
+    }
+  };
+})();
+SCORM.init();
+addEventListener('pagehide', () => SCORM.finish());
+addEventListener('beforeunload', () => SCORM.finish());
+
+// ================= Сцена =================
+const renderer = new THREE.WebGLRenderer({ antialias:true, alpha:true });
+renderer.setPixelRatio(Math.min(devicePixelRatio, 2));
+renderer.setSize(innerWidth, innerHeight);
+renderer.setClearColor(0x000000, 0);
+renderer.toneMapping = THREE.ACESFilmicToneMapping;
+renderer.shadowMap.enabled = true;
+renderer.shadowMap.type = THREE.PCFSoftShadowMap;
+document.body.prepend(renderer.domElement);
+
+const scene = new THREE.Scene();
+const pmrem = new THREE.PMREMGenerator(renderer);
+scene.environment = pmrem.fromScene(new RoomEnvironment(), 0.04).texture;
+
+const camera = new THREE.PerspectiveCamera(38, innerWidth / innerHeight, 0.01, 1000);
+camera.position.set(1, 0.7, 1.2);
+const controls = new OrbitControls(camera, renderer.domElement);
+controls.enableDamping = true;
+controls.autoRotateSpeed = 0.8;
+
+const keyLight = new THREE.DirectionalLight(0xffffff, 1.6);
+keyLight.castShadow = true;
+keyLight.shadow.mapSize.set(2048, 2048);
+keyLight.shadow.bias = -0.0005;
+scene.add(keyLight);
+const rimLight = new THREE.DirectionalLight(0x9cc4ff, 1.0);
+scene.add(rimLight);
+
+const ghostMat = new THREE.ShaderMaterial({
+  uniforms: {
+    color:    { value: new THREE.Color(0x4da3ff) },
+    power:    { value: 2.2 },
+    base:     { value: 0.03 },
+    strength: { value: 0.7 }
+  },
+  vertexShader: `
+    varying vec3 vN; varying vec3 vV;
+    void main() {
+      vec4 mv = modelViewMatrix * vec4(position, 1.0);
+      vN = normalize(normalMatrix * normal);
+      vV = normalize(-mv.xyz);
+      gl_Position = projectionMatrix * mv;
+    }`,
+  fragmentShader: `
+    uniform vec3 color; uniform float power; uniform float base; uniform float strength;
+    varying vec3 vN; varying vec3 vV;
+    void main() {
+      float f = pow(1.0 - abs(dot(normalize(vN), normalize(vV))), power);
+      gl_FragColor = vec4(color * (base + f * strength), 1.0);
+    }`,
+  transparent: true,
+  blending: THREE.AdditiveBlending,
+  depthWrite: false,
+  side: THREE.DoubleSide
+});
+
+// ================= Состояние =================
+const parts = [];
+const byId = {};
+let maxStep = 1, modelSize = 1;
+let T = 0, target = 0, step = 0;
+let selected = null;
+let isolated = null;
+let hintsOn = !isMobile();
+let xray = false;
+let tween = null;
+const homeBase = new THREE.Vector3();
+
+// ================= Раскладка =================
+function updateViewOffset() {
+  const W = innerWidth, H = innerHeight;
+  camera.aspect = W / H;
+  if (!isMobile()) {
+    const lw = $('left').offsetWidth + 16, rw = $('right').offsetWidth + 16;
+    camera.setViewOffset(W, H, -(lw - rw) / 2, 0, W, H);
+  } else {
+    const top = $('toolbar').offsetHeight + 16;
+    const bottom = $('left').offsetHeight + $('stepbar').offsetHeight + 16;
+    camera.setViewOffset(W, H, 0, (bottom - top) / 2, W, H);
+  }
+  camera.updateProjectionMatrix();
+}
+
+function applyLayout() {
+  if (isMobile()) $('listPane').appendChild($('listWrap'));
+  else $('right').appendChild($('listWrap'));
+  updateViewOffset();
+}
+mq.addEventListener('change', applyLayout);
+new ResizeObserver(updateViewOffset).observe($('left'));
+new ResizeObserver(updateViewOffset).observe($('stepbar'));
+
+const homePos = () => homeBase.clone().multiplyScalar(isMobile() ? 1.4 : 1);
+
+function setTab(name) {
+  $('left').dataset.tab = name;
+  document.querySelectorAll('#tabs button').forEach(b => b.classList.toggle('on', b.dataset.tab === name));
+}
+document.querySelectorAll('#tabs button').forEach(b => b.onclick = () => setTab(b.dataset.tab));
+$('sheetHandle').onclick = () => document.body.classList.toggle('sheet-open');
+
+// ================= Загрузка =================
+new GLTFLoader().load(MODEL_URL, (gltf) => {
+  const model = gltf.scene;
+  scene.add(model);
+
+  const box = new THREE.Box3().setFromObject(model);
+  model.position.sub(box.getCenter(new THREE.Vector3()));
+  model.updateMatrixWorld(true);
+  box.setFromObject(model);
+  modelSize = box.getSize(new THREE.Vector3()).length();
+
+  model.traverse(o => {
+    if (!o.isMesh) return;
+    o.castShadow = o.receiveShadow = true;
+    o.material = Array.isArray(o.material) ? o.material.map(m => m.clone()) : o.material.clone();
+  });
+
+    model.traverse(o => {
+    const cfg = PARTS[o.name];
+    if (!cfg) return;
+    const worldBase = o.getWorldPosition(new THREE.Vector3());
+    const center = new THREE.Box3().setFromObject(o).getCenter(new THREE.Vector3());
+    const centerOff = center.clone().sub(worldBase);
+    const samples = collectSamples(o, worldBase);
+    // Точка подписи – ближайшая к центру точка самой детали, а не пустота между её частями
+    let anchorOff = centerOff.clone(), bestD = Infinity;
+    for (const s of samples) {
+      const dd = s.distanceToSquared(centerOff);
+      if (dd < bestD) { bestD = dd; anchorOff = s; }
+    }
+    let dir = cfg.dir ? new THREE.Vector3(...cfg.dir) : center.clone();
+    if (dir.length() < modelSize * 0.05) dir = AXIS.clone();
+    dir.normalize();
+    o.userData.part = {
+      ...cfg, id:o.name, obj:o, dir, worldBase,
+      dist: modelSize * 0.35 * (cfg.dist ?? 1),
+      offset: new THREE.Vector3(),
+      pos: worldBase.clone(),
+      centerOff, anchorOff, samples,
+      anchor: worldBase.clone().add(anchorOff)
+    };
+    parts.push(o);
+    byId[o.name] = o;
+  });
+
+  const missing = Object.keys(PARTS).filter(k => !byId[k]);
+  if (missing.length) console.warn('В модели не найдены:', missing);
+
+  maxStep = Math.max(1, ...parts.map(p => p.userData.part.step).filter(s => s < 99));
+
+  const ground = new THREE.Mesh(new THREE.PlaneGeometry(modelSize * 10, modelSize * 10),
+                                new THREE.ShadowMaterial({ opacity:0.35 }));
+  ground.rotation.x = -Math.PI / 2;
+  ground.position.y = box.min.y - 0.001;            // трансформатор стоит на полу
+  ground.receiveShadow = true;
+  scene.add(ground);
+
+  keyLight.position.set(modelSize, modelSize * 2, modelSize);
+  const sc = keyLight.shadow.camera;
+  sc.left = sc.bottom = -modelSize * 1.8;
+  sc.right = sc.top = modelSize * 1.8;
+  sc.near = 0.01; sc.far = modelSize * 6;
+  sc.updateProjectionMatrix();
+  rimLight.position.set(-modelSize, modelSize * 0.8, -modelSize);
+
+  homeBase.set(modelSize * 0.85, modelSize * 0.6, modelSize * 1.25);
+  camera.position.copy(homePos());
+  camera.near = modelSize / 100; camera.far = modelSize * 20;
+
+  buildUI();
+  applyLayout();
+  setHints(hintsOn);
+  goStep(0);
+  $('subtitle').textContent = `Интерактивная разборка · ${parts.length} деталей · ${maxStep} шагов`;
+  $('listTitle').textContent = `Детали · ${parts.length}`;
+  $('loading').remove();
+}, (xhr) => {
+  if (xhr.total) $('loadText').textContent = `Загрузка модели… ${Math.round(xhr.loaded / xhr.total * 100)}%`;
+}, (err) => {
+  $('loadText').textContent = 'Ошибка загрузки модели: ' + (err?.message || err);
+  document.querySelector('.spinner')?.remove();
+  console.error(err);
+});
+
+// ================= Интерфейс =================
+const SVGNS = 'http://www.w3.org/2000/svg';
+
+function buildUI() {
+  for (let i = 0; i <= maxStep; i++) {
+    const d = document.createElement('div');
+    d.className = 'dot';
+    d.title = i ? `Шаг ${i}: ${STEPS[i] ?? ''}` : STEPS[0];
+    d.onclick = () => goStep(i);
+    $('dots').appendChild(d);
+  }
+
+  const steps = [...new Set(parts.map(p => p.userData.part.step))].sort((a, b) => a - b);
+  for (const s of steps) {
+    const h = document.createElement('div');
+    h.className = 'grp-h';
+    h.dataset.step = s;
+    h.innerHTML = s === 99
+      ? `<span class="num">•</span><span>Остаётся на месте</span>`
+      : `<span class="num">${s}</span><span>${STEPS[s] ?? 'Шаг ' + s}</span>`;
+    if (s !== 99) h.onclick = () => goStep(s);
+    $('list').appendChild(h);
+
+    parts.filter(p => p.userData.part.step === s).forEach(p => {
+      const d = p.userData.part;
+      const it = document.createElement('div');
+      it.className = 'item';
+      it.textContent = d.name;
+      it.onclick = () => onPartClick(p);
+      d.itemEl = it;
+      $('list').appendChild(it);
+    });
+  }
+
+  for (const p of parts) {
+    const d = p.userData.part;
+    const lab = document.createElement('div');
+    lab.className = 'label';
+    lab.textContent = d.name;
+    lab.onclick = () => onPartClick(p);
+    $('labels').appendChild(lab);
+    d.labelEl = lab;
+
+    const g = document.createElementNS(SVGNS, 'g');
+    const pl = document.createElementNS(SVGNS, 'polyline');
+    const c = document.createElementNS(SVGNS, 'circle');
+    c.setAttribute('r', 3);
+    g.append(pl, c);
+    $('lines').appendChild(g);
+    d.gEl = g; d.polyEl = pl; d.dotEl = c;
+  }
+}
+
+function goStep(s) {
+  step = THREE.MathUtils.clamp(s, 0, maxStep);
+  target = step / maxStep;
+  $('stepNum').textContent = step === 0 ? 'Исходное состояние' : `Шаг ${step} из ${maxStep}`;
+  $('stepTitle').textContent = STEPS[step] ?? '';
+  $('prev').disabled = step === 0;
+  $('next').disabled = step === maxStep;
+  $('btnExplode').querySelector('span').textContent = step > 0 ? 'Собрать' : 'Разобрать';
+  [...$('dots').children].forEach((d, i) => {
+    d.classList.toggle('done', i < step);
+    d.classList.toggle('cur', i === step);
+  });
+  document.querySelectorAll('.grp-h').forEach(h => {
+    const s = +h.dataset.step;
+    h.classList.toggle('done', s !== 99 && s <= step);
+  });
+  syncList();
+  if (!selected) renderInfo();
+  if (step === maxStep && !quiz.active) SCORM.completed();
+}
+
+function syncList() {
+  for (const p of parts) {
+    const d = p.userData.part;
+    if (!d.itemEl) continue;
+    d.itemEl.classList.toggle('sel', p === selected);
+    d.itemEl.classList.toggle('hidden-part', !p.visible);
+    d.itemEl.classList.toggle('removed', d.step !== 99 && d.step <= step);
+  }
+}
+
+// ================= Левая панель =================
+function renderInfo() {
+  const el = $('info');
+
+  if (!selected) {
+    const nextStep = Math.min(step === 0 ? 1 : step, maxStep);
+    const chips = parts
+      .filter(p => p.userData.part.step === nextStep)
+      .map(p => `<button class="chip" data-id="${p.userData.part.id}">${p.userData.part.name}</button>`)
+      .join('');
+    el.innerHTML = `
+      <div class="eyebrow">${step === 0 ? 'С чего начать' : `Шаг ${step} из ${maxStep}`}</div>
+      <h2 class="title">${step === 0 ? 'Выберите деталь' : STEPS[step]}</h2>
+      <p class="lead">Нажмите на любую деталь на модели или в списке, и здесь появится подробная информация: что это, зачем нужна, как устроена и как её правильно снимать.</p>
+      <div class="sub">${step === 0 ? 'Первыми снимаются:' : 'Детали этого шага:'}</div>
+      <div class="chips">${chips}</div>
+      <div class="keys desk">
+        <kbd>←</kbd> <kbd>→</kbd> шаги разборки<br>
+        <kbd>H</kbd> подписи · <kbd>X</kbd> рентген · <kbd>Esc</kbd> снять выбор
+      </div>`;
+    el.querySelectorAll('.chip').forEach(c => c.onclick = () => select(byId[c.dataset.id]));
+    return;
+  }
+
+  const d = selected.userData.part;
+  const sec = (cls, title, text) => text ? `<div class="sec ${cls}"><h5>${title}</h5><p>${text}</p></div>` : '';
+  el.innerHTML = `
+    <div class="info-head">
+      <div class="eyebrow">${d.step === 99 ? BASE_LABEL : 'Снимается на шаге ' + d.step}</div>
+      <button class="x" id="infoClose" aria-label="Закрыть">×</button>
+    </div>
+    <h2 class="title" id="infoTitle">${d.name}</h2>
+    <div class="row">
+      <button class="btn primary" id="bFocus">Приблизить</button>
+      <button class="btn ${xray ? 'on' : ''}" id="bXray">Рентген</button>
+      <button class="btn ${isolated ? 'on' : ''}" id="bIso">${isolated ? 'Показать все' : 'Показать деталь'}</button>
+      <button class="btn" id="bHide">Скрыть</button>
+    </div>
+    ${sec('', 'Что это', d.what)}
+    ${sec('', 'Зачем нужно', d.why)}
+    ${sec('', 'Устройство', d.how)}
+    ${sec('faults', 'Неисправности и признаки', d.faults)}
+    ${sec('tip', 'При разборке и сборке', d.tip)}`;
+  el.scrollTop = 0;
+
+  $('infoClose').onclick = () => select(null);
+  $('bFocus').onclick = () => focusOn(selected);
+  $('bXray').onclick = () => setXray(!xray);
+  $('bIso').onclick = () => isolate(isolated ? null : selected);
+  $('bHide').onclick = () => {
+    const p = selected;
+    if (isolated === p) isolated = null;
+    select(null);
+    p.visible = false;
+    syncList();
+  };
+}
+
+const v = new THREE.Vector3();
+// Точки поверхности детали (берём каждую N-ю вершину, чтобы не перегружать расчёт)
+function collectSamples(obj, origin, max = 400) {
+  const pts = [];
+  const p = new THREE.Vector3();
+  obj.updateMatrixWorld(true);
+  obj.traverse(m => {
+    if (!m.isMesh) return;
+    const pos = m.geometry.attributes.position;
+    const stride = Math.max(1, Math.floor(pos.count / max));
+    for (let i = 0; i < pos.count; i += stride) {
+      p.fromBufferAttribute(pos, i).applyMatrix4(m.matrixWorld).sub(origin);
+      pts.push(p.clone());
+    }
+  });
+  return pts;
+}
+
+// Видимая точка на поверхности детали для линии к панели
+const linkRay = new THREE.Raycaster();
+const spC = new THREE.Vector3(), spP = new THREE.Vector3();
+function surfacePoint(p) {
+  const d = p.userData.part;
+  // 1) луч от камеры к центру детали – куда он попал, туда и указываем
+  spC.copy(d.pos).add(d.centerOff);
+  linkRay.set(camera.position, spP.copy(spC).sub(camera.position).normalize());
+  const hit = linkRay.intersectObject(p, true)[0];
+  if (hit) return spC.copy(hit.point);
+  // 2) если луч прошёл мимо (тонкие шпильки, разнесённые части) – ближайшая к камере точка детали
+  let best = d.anchorOff, bd = Infinity;
+  for (const s of d.samples) {
+    const dist = spP.copy(d.pos).add(s).distanceToSquared(camera.position);
+    if (dist < bd) { bd = dist; best = s; }
+  }
+  return spC.copy(d.pos).add(best);
+}
+
+function updateLink() {
+  const line = $('linkLine'), dot = $('linkDot');
+  const title = $('infoTitle');
+  const hide = () => { line.setAttribute('points', ''); dot.setAttribute('r', 0); };
+  if (!selected || quiz.active || isMobile() || !title || !selected.visible) return hide();
+
+  v.copy(surfacePoint(selected)).project(camera);
+  if (v.z > 1) return hide();
+  const x = (v.x + 1) / 2 * innerWidth, y = (1 - v.y) / 2 * innerHeight;
+
+  const lr = $('left').getBoundingClientRect();
+  const tr = title.getBoundingClientRect();
+  const ty = THREE.MathUtils.clamp(tr.top + tr.height / 2, lr.top + 24, lr.bottom - 24);
+  const ex = lr.right;
+  if (x < ex + 20) return hide();
+  line.setAttribute('points', `${x},${y} ${ex + 40},${ty} ${ex},${ty}`);
+  dot.setAttribute('cx', x); dot.setAttribute('cy', y); dot.setAttribute('r', 4);
+}
+
+// ================= Выбор, подсветка, рентген =================
+const selColor = () => xray ? 0x000000 : SEL_COLOR;
+
+function setEmissive(p, hex) {
+  p.traverse(o => {
+    if (!o.isMesh) return;
+    [].concat(o.userData.orig ?? o.material).forEach(m => m.emissive && m.emissive.setHex(hex));
+  });
+}
+
+function applyXray() {
+  const on = xray && selected && !quiz.active;
+  for (const p of parts) {
+    const ghost = on && p !== selected;
+    p.traverse(o => {
+      if (!o.isMesh) return;
+      if (ghost && !o.userData.orig) {
+        o.userData.orig = o.material;
+        o.material = ghostMat;
+        o.castShadow = false;
+      } else if (!ghost && o.userData.orig) {
+        o.material = o.userData.orig;
+        delete o.userData.orig;
+        o.castShadow = true;
+      }
+    });
+  }
+}
+
+function setXray(on) {
+  xray = on;
+  $('btnXray').classList.toggle('on', xray);
+  if (selected) setEmissive(selected, selColor());
+  applyXray();
+  renderInfo();
+  if (xray && !selected) toast('Рентген включён: выберите деталь', 'info');
+}
+
+function isolate(p) {
+  isolated = p || null;
+  parts.forEach(q => q.visible = !isolated || q === isolated);
+  syncList();
+  renderInfo();
+  if (isolated) focusOn(isolated);
+}
+
+function select(p) {
+  if (selected) setEmissive(selected, 0x000000);
+  selected = p || null;
+  if (selected) setEmissive(selected, selColor());
+  if (isolated && selected && selected !== isolated) {
+    isolated = selected;
+    parts.forEach(q => q.visible = q === selected);
+  }
+  applyXray();
+  renderInfo();
+  syncList();
+  if (selected && isMobile()) setTab('info');
+}
+
+function onPartClick(p) {
+  if (quiz.active) quizAnswer(p);
+  else select(p === selected ? null : p);
+}
+
+// ================= Камера =================
+function flyTo(pos, tgt) { tween = { pos:pos.clone(), target:tgt.clone() }; }
+
+function focusOn(p) {
+  const a = p.userData.part.anchor;
+  const dir = camera.position.clone().sub(controls.target).normalize();
+  flyTo(a.clone().addScaledVector(dir, modelSize * (isMobile() ? 0.8 : 0.55)), a);
+}
+controls.addEventListener('start', () => { tween = null; });
+
+// ================= Кнопки =================
+function setHints(on) {
+  hintsOn = on;
+  $('btnHints').classList.toggle('on', hintsOn);
+}
+
+$('next').onclick = () => goStep(step + 1);
+$('prev').onclick = () => goStep(step - 1);
+$('btnExplode').onclick = () => goStep(step > 0 ? 0 : maxStep);
+$('btnHome').onclick = () => flyTo(homePos(), new THREE.Vector3());
+$('btnHints').onclick = () => setHints(!hintsOn);
+$('btnXray').onclick = () => setXray(!xray);
+$('btnRotate').onclick = (e) => {
+  controls.autoRotate = !controls.autoRotate;
+  e.currentTarget.classList.toggle('on', controls.autoRotate);
+};
+$('showAll').onclick = () => isolate(null);
+$('btnQuiz').onclick = () => quiz.active ? stopQuiz() : startQuiz();
+$('quizExit').onclick = stopQuiz;
+$('quizAgain').onclick = startQuiz;
+
+addEventListener('keydown', (e) => {
+  if (e.key === 'ArrowRight') goStep(step + 1);
+  if (e.key === 'ArrowLeft') goStep(step - 1);
+  if (e.key === 'Escape') select(null);
+  if (e.code === 'KeyH') setHints(!hintsOn);
+  if (e.code === 'KeyX') setXray(!xray);
+});
+
+// ================= Тест =================
+const quiz = { active:false, queue:[], cur:null, ok:0, total:0, count:0, lock:false };
+let toastTimer;
+
+function toast(msg, type) {
+  const t = $('toast');
+  t.textContent = msg;
+  t.className = 'show ' + type;
+  clearTimeout(toastTimer);
+  toastTimer = setTimeout(() => t.className = '', 1600);
+}
+
+function flash(p, hex) {
+  setEmissive(p, hex);
+  setTimeout(() => setEmissive(p, p === selected ? selColor() : 0x000000), 1100);
+}
+
+function shuffle(a) {
+  for (let i = a.length - 1; i > 0; i--) {
+    const j = Math.floor(Math.random() * (i + 1));
+    [a[i], a[j]] = [a[j], a[i]];
+  }
+  return a;
+}
+
+function startQuiz() {
+  select(null);
+  isolate(null);
+  Object.assign(quiz, { active:true, ok:0, total:0, lock:false });
+  goStep(maxStep);
+  applyXray();
+  quiz.queue = shuffle([...parts]).slice(0, 10);
+  quiz.count = quiz.queue.length;
+  $('quiz').classList.remove('hidden');
+  $('btnQuiz').classList.add('on');
+  $('btnQuizText').textContent = 'Выйти';
+  document.body.classList.remove('sheet-open');
+  nextQuestion();
+}
+
+function nextQuestion() {
+  quiz.lock = false;
+  quiz.cur = quiz.queue.shift() || null;
+  if (!quiz.cur) {
+    const pct = Math.round(quiz.ok / quiz.count * 100);
+    $('quizQ').innerHTML = `Готово! Результат: <b>${quiz.ok} из ${quiz.count}</b> (${pct}%)`;
+    $('quizScore').textContent = pct >= PASS_SCORE ? 'Тест пройден!' : `Для зачёта нужно ${PASS_SCORE}%. Повторите детали и попробуйте ещё раз.`;
+    $('quizAgain').classList.remove('hidden');
+    SCORM.score(quiz.ok, quiz.count);
+    return;
+  }
+  $('quizAgain').classList.add('hidden');
+  $('quizQ').innerHTML = `Найдите: <b>${quiz.cur.userData.part.name}</b>`;
+  $('quizScore').textContent = `Вопрос ${quiz.total + 1} из ${quiz.count} · верно ${quiz.ok}`;
+}
+
+function quizAnswer(p) {
+  if (quiz.lock || !quiz.cur || !p) return;
+  quiz.lock = true;
+  quiz.total++;
+  if (p === quiz.cur) {
+    quiz.ok++;
+    flash(p, 0x1f9d55);
+    toast('Верно!', 'ok');
+  } else {
+    flash(p, 0xb3261e);
+    flash(quiz.cur, 0x1f9d55);
+    toast(`Это «${p.userData.part.name}». Правильная подсвечена зелёным`, 'bad');
+  }
+  setTimeout(nextQuestion, 1400);
+}
+
+function stopQuiz() {
+  quiz.active = false;
+  quiz.cur = null;
+  $('quiz').classList.add('hidden');
+  $('btnQuiz').classList.remove('on');
+  $('btnQuizText').textContent = 'Тест';
+  applyXray();
+  renderInfo();
+}
+
+// ================= Клик по модели =================
+const raycaster = new THREE.Raycaster();
+const mouse = new THREE.Vector2();
+
+function pick(e) {
+  mouse.set((e.clientX / innerWidth) * 2 - 1, -(e.clientY / innerHeight) * 2 + 1);
+  raycaster.setFromCamera(mouse, camera);
+  const hit = raycaster.intersectObjects(parts.filter(p => p.visible), true)[0];
+  let o = hit?.object;
+  while (o && !o.userData.part) o = o.parent;
+  return o || null;
+}
+
+let downX = 0, downY = 0;
+renderer.domElement.addEventListener('pointerdown', e => { downX = e.clientX; downY = e.clientY; });
+renderer.domElement.addEventListener('pointerup', e => {
+  if (Math.hypot(e.clientX - downX, e.clientY - downY) > 6) return;
+  const p = pick(e);
+  if (quiz.active) quizAnswer(p);
+  else select(p);
+});
+renderer.domElement.addEventListener('pointermove', e => {
+  if (e.pointerType !== 'mouse') return;
+  renderer.domElement.style.cursor = pick(e) ? 'pointer' : 'default';
+});
+
+// ================= Анимация разборки =================
+const tmp = new THREE.Vector3();
+
+function updateParts() {
+  for (const p of parts) {
+    const d = p.userData.part;
+    let k = THREE.MathUtils.clamp(T * maxStep - (d.step - 1), 0, 1);
+    k = k * k * (3 - 2 * k);
+    d.offset.copy(d.dir).multiplyScalar(d.dist * k);
+  }
+  for (const p of parts) {
+    const d = p.userData.part;
+    tmp.copy(d.worldBase).add(d.offset);
+    if (d.with && byId[d.with]) tmp.add(byId[d.with].userData.part.offset);
+        d.pos.copy(tmp);
+    d.anchor.copy(tmp).add(d.anchorOff);
+    p.position.copy(p.parent.worldToLocal(tmp));
+  }
+}
+
+// ================= Подписи =================
+function updateLabels() {
+  const show = hintsOn && !quiz.active && parts.length > 0;
+  $('labels').style.display = $('lines').style.display = show ? '' : 'none';
+  if (!show) return;
+
+  const W = innerWidth, H = innerHeight;
+  const xrayOn = xray && selected;
+  const linkShown = selected && !isMobile();
+  v.set(0, 0, 0).project(camera);
+  const cx = (v.x + 1) / 2 * W;
+
+  const items = [];
+  for (const p of parts) {
+    const d = p.userData.part;
+    let vis = p.visible && (d.step === 99 || d.step <= step + 1 || p === selected);
+    if (linkShown && p === selected) vis = false;
+    if (vis) {
+      v.copy(d.anchor).project(camera);
+      if (v.z > 1) vis = false;
+    }
+    d.labelEl.style.display = vis ? '' : 'none';
+    d.gEl.style.display = vis ? '' : 'none';
+    if (!vis) continue;
+    const x = (v.x + 1) / 2 * W, y = (1 - v.y) / 2 * H;
+    items.push({ d, x, y, side: x < cx ? -1 : 1 });
+  }
+
+  const OFF = isMobile() ? 36 : 80, GAP = 26;
+  for (const side of [-1, 1]) {
+    let last = -1e9;
+    items.filter(i => i.side === side).sort((a, b) => a.y - b.y).forEach(it => {
+      it.ly = Math.max(it.y, last + GAP);
+      last = it.ly;
+    });
+  }
+
+  for (const { d, x, y, side, ly } of items) {
+    const lx = x + side * OFF;
+    const isSel = d.obj === selected;
+    d.labelEl.style.transform = `translate(${lx}px, ${ly}px) translate(${side < 0 ? '-100%' : '0'}, -50%)`;
+    d.labelEl.classList.toggle('sel', isSel);
+    d.labelEl.classList.toggle('next', d.step === step + 1);
+    d.labelEl.classList.toggle('dim', xrayOn && !isSel);
+    d.gEl.classList.toggle('dim', xrayOn && !isSel);
+    d.polyEl.setAttribute('points', `${x},${y} ${lx - side * 16},${ly} ${lx},${ly}`);
+    d.dotEl.setAttribute('cx', x);
+    d.dotEl.setAttribute('cy', y);
+  }
+}
+
+// ================= Цикл =================
+const clock = new THREE.Clock();
+function animate() {
+  requestAnimationFrame(animate);
+  const dt = clock.getDelta();
+
+  T += (target - T) * Math.min(1, dt * 3);
+  if (parts.length) updateParts();
+
+  if (tween) {
+    const k = Math.min(1, dt * 4);
+    camera.position.lerp(tween.pos, k);
+    controls.target.lerp(tween.target, k);
+    if (camera.position.distanceTo(tween.pos) < modelSize * 0.002) tween = null;
+  }
+
+  controls.update();
+  renderer.render(scene, camera);
+  updateLabels();
+  updateLink();
+}
+animate();
+
+addEventListener('resize', () => {
+  renderer.setSize(innerWidth, innerHeight);
+  updateViewOffset();
+});
+</script>
+</body>
+</html>
