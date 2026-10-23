@@ -1,0 +1,209 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>3D-тренажёры по электрооборудованию</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --bg1:#2a3242; --bg2:#0e1117;
+    --card:rgba(20,24,32,.82); --card-h:rgba(28,34,46,.92); --line:rgba(255,255,255,.08);
+    --text:#e9edf4; --muted:#97a1b2;
+    --accent:#4da3ff; --accent2:#2f7fe0;
+  }
+  * { box-sizing:border-box; }
+  html { min-height:100%; }
+  body {
+    margin:0; min-height:100vh; font-family:'Inter', system-ui, 'Segoe UI', Arial, sans-serif; color:var(--text);
+    background:radial-gradient(ellipse at 50% 0%, var(--bg1), var(--bg2) 70%) fixed;
+  }
+  a { color:inherit; }
+
+  .wrap { max-width:1200px; margin:0 auto; padding:48px 24px 64px; }
+
+  /* ---- Шапка ---- */
+  header { margin-bottom:32px; }
+  .eyebrow { font-size:12px; font-weight:600; letter-spacing:.6px; text-transform:uppercase; color:var(--accent); }
+  h1 { margin:8px 0 10px; font-size:clamp(26px, 4vw, 38px); line-height:1.15; font-weight:700; }
+  .lead { margin:0; max-width:640px; font-size:15.5px; line-height:1.6; color:#c2cad8; }
+
+  /* ---- Поиск и фильтры ---- */
+  .controls { display:flex; flex-wrap:wrap; align-items:center; gap:10px; margin:28px 0 22px; }
+  .search { position:relative; flex:1 1 260px; max-width:360px; }
+  .search svg { position:absolute; left:12px; top:50%; transform:translateY(-50%); width:16px; height:16px; color:var(--muted); }
+  .search input {
+    width:100%; padding:11px 14px 11px 38px; border-radius:12px; border:1px solid var(--line);
+    background:var(--card); color:var(--text); font:inherit; font-size:14px; outline:none;
+  }
+  .search input:focus { border-color:var(--accent); }
+  .chips { display:flex; flex-wrap:wrap; gap:6px; }
+  .chip {
+    border:1px solid var(--line); background:var(--card); color:var(--text); font:inherit; font-size:13px;
+    padding:9px 14px; border-radius:20px; cursor:pointer; transition:background .15s, border-color .15s;
+  }
+  .chip:hover { background:var(--card-h); }
+  .chip.on { background:var(--accent2); border-color:var(--accent2); }
+  .count { margin-left:auto; font-size:13px; color:var(--muted); }
+
+  /* ---- Карточки ---- */
+  .grid { display:grid; grid-template-columns:repeat(auto-fill, minmax(260px, 1fr)); gap:18px; }
+  .dev {
+    display:flex; flex-direction:column; text-decoration:none; overflow:hidden;
+    background:var(--card); border:1px solid var(--line); border-radius:18px;
+    box-shadow:0 10px 28px rgba(0,0,0,.3); transition:transform .2s, border-color .2s, background .2s;
+  }
+  .dev.ready:hover { transform:translateY(-4px); border-color:rgba(77,163,255,.5); background:var(--card-h); }
+  .dev.ready:focus-visible { outline:2px solid var(--accent); outline-offset:3px; }
+  .thumb {
+    position:relative; aspect-ratio:16 / 10; display:grid; place-items:center;
+    background:radial-gradient(circle at 50% 60%, rgba(77,163,255,.22), rgba(77,163,255,0) 65%),
+               linear-gradient(180deg, rgba(255,255,255,.03), rgba(255,255,255,0));
+    border-bottom:1px solid var(--line);
+  }
+  .thumb svg { width:44%; height:auto; color:var(--accent); fill:none; stroke:currentColor;
+               stroke-width:2; stroke-linecap:round; stroke-linejoin:round; transition:transform .3s; }
+  .thumb img { width:100%; height:100%; object-fit:cover; }
+  .dev.ready:hover .thumb svg { transform:scale(1.06); }
+  .tag { position:absolute; top:12px; left:12px; font-size:11px; font-weight:500; padding:4px 9px; border-radius:8px;
+         background:rgba(14,17,23,.75); border:1px solid var(--line); color:#c9d1de; }
+  .badge { position:absolute; top:12px; right:12px; font-size:11px; font-weight:600; padding:4px 9px; border-radius:8px; }
+  .badge.ready { background:rgba(46,204,113,.18); color:#7ee2a8; border:1px solid rgba(46,204,113,.35); }
+  .badge.soon { background:rgba(255,255,255,.08); color:var(--muted); border:1px solid var(--line); }
+
+  .body { display:flex; flex-direction:column; flex:1; padding:16px 18px 18px; }
+  .body h3 { margin:0 0 6px; font-size:17px; line-height:1.3; }
+  .body p { margin:0 0 16px; font-size:13.5px; line-height:1.55; color:#b9c2d0; flex:1; }
+  .foot { display:flex; align-items:center; justify-content:space-between; gap:10px; font-size:12.5px; }
+  .meta { color:var(--muted); }
+  .go { font-weight:600; color:var(--accent); white-space:nowrap; }
+
+  .dev.soon { cursor:default; }
+  .dev.soon .thumb svg { color:#6b7587; }
+  .dev.soon .body h3, .dev.soon .body p { opacity:.65; }
+  .dev.soon .go { color:var(--muted); font-weight:500; }
+
+  .empty { grid-column:1 / -1; text-align:center; padding:48px 16px; color:var(--muted); font-size:15px; }
+
+  footer { margin-top:48px; font-size:12.5px; color:var(--muted); text-align:center; }
+
+  @media (max-width: 600px) {
+    .wrap { padding:28px 14px 40px; }
+    .count { margin-left:0; width:100%; }
+    .grid { grid-template-columns:1fr; gap:14px; }
+    .thumb { aspect-ratio:16 / 8; }
+  }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <header>
+    <div class="eyebrow">Интерактивные 3D-тренажёры</div>
+    <h1>Устройство электрооборудования</h1>
+    <p class="lead">Разбирайте оборудование по шагам, изучайте каждую деталь (её назначение, устройство и типичные неисправности) и проверяйте себя в тесте.</p>
+  </header>
+
+  <div class="controls">
+    <label class="search">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="11" cy="11" r="7"/><path d="M20 20l-3.5-3.5"/></svg>
+      <input id="q" type="search" placeholder="Поиск оборудования" autocomplete="off">
+    </label>
+    <div class="chips" id="cats"></div>
+    <div class="count" id="count"></div>
+  </div>
+
+  <main class="grid" id="grid"></main>
+
+  <footer>Для работы нужен современный браузер: Chrome, Edge, Firefox или Яндекс.Браузер</footer>
+</div>
+
+<script>
+// ---------- Иконки (простые схемы, можно заменить картинками через поле img) ----------
+const ICONS = {
+  motor: `<svg viewBox="0 0 64 64"><rect x="12" y="22" width="32" height="24" rx="4"/><path d="M18 22v24M24 22v24M30 22v24M36 22v24"/><rect x="22" y="14" width="12" height="8" rx="1.5"/><path d="M44 30h5v8h-5M49 34h9"/><path d="M14 46l-2 7h34l-2-7"/></svg>`,
+  dc: `<svg viewBox="0 0 64 64"><rect x="8" y="22" width="30" height="24" rx="4"/><rect x="38" y="26" width="9" height="16" rx="1.5"/><path d="M41 26v16M44 26v16M47 34h11"/><path d="M42.5 14v8M42.5 46v8"/><rect x="39" y="10" width="7" height="4" rx="1"/><rect x="39" y="54" width="7" height="4" rx="1"/></svg>`,
+  generator: `<svg viewBox="0 0 64 64"><circle cx="32" cy="32" r="21"/><path d="M19 32q3.25-9 6.5 0t6.5 0t6.5 0t6.5 0"/></svg>`,
+  dryTr: `<svg viewBox="0 0 64 64"><rect x="6" y="12" width="52" height="40" rx="2"/><path d="M6 20h52M6 44h52"/><rect x="10" y="20" width="12" height="24" rx="4"/><rect x="26" y="20" width="12" height="24" rx="4"/><rect x="42" y="20" width="12" height="24" rx="4"/></svg>`,
+  oilTr: `<svg viewBox="0 0 64 64"><rect x="16" y="24" width="32" height="30" rx="2"/><path d="M9 28v22M12.5 28v22M51.5 28v22M55 28v22M12.5 32h3.5M48 32h3.5M12.5 46h3.5M48 46h3.5"/><path d="M24 24v-8M32 24v-8M40 24v-8"/><path d="M21 16h6M29 16h6M37 16h6"/><rect x="38" y="8" width="16" height="6" rx="3"/></svg>`,
+  contactor: `<svg viewBox="0 0 64 64"><rect x="14" y="12" width="36" height="42" rx="4"/><path d="M22 12V6M32 12V6M42 12V6M22 54v4M32 54v4M42 54v4"/><path d="M22 20l5 8M32 20l5 8M42 20l5 8"/><path d="M19 30h26" stroke-dasharray="3 3"/><rect x="24" y="38" width="16" height="10" rx="2"/></svg>`,
+  breaker: `<svg viewBox="0 0 64 64"><rect x="20" y="6" width="24" height="52" rx="3"/><path d="M26 12h12M26 52h12"/><rect x="27" y="23" width="10" height="18" rx="2"/><path d="M32 23v-5"/></svg>`,
+  relay: `<svg viewBox="0 0 64 64"><rect x="10" y="14" width="44" height="36" rx="4"/><circle cx="23" cy="32" r="7"/><path d="M23 32l4-4"/><path d="M35 25c3 5 8 3 11 9"/><path d="M35 40h12"/></svg>`
+};
+
+// ---------- Список оборудования ----------
+// status: 'ready' – страница готова, 'soon' – в разработке
+// img: путь к картинке-превью (необязательно), иначе показывается иконка
+const DEVICES = [
+  { title:'Асинхронный двигатель', cat:'machines', status:'ready', href:'motor_as.html', icon:'motor',
+    meta:'23 детали · 10 шагов',
+    desc:'Трёхфазный двигатель с короткозамкнутым ротором: статор, ротор, подшипники, вентилятор и клеммная коробка.' },
+  { title:'Машина постоянного тока', cat:'machines', status:'soon', icon:'dc',
+    desc:'Якорь, коллектор, щёточный узел, главные и добавочные полюса.' },
+  { title:'Синхронный генератор', cat:'machines', status:'soon', icon:'generator',
+    desc:'Ротор с обмоткой возбуждения, статор, контактные кольца и система возбуждения.' },
+  { title:'Сухой трансформатор', cat:'transformers', status:'soon', icon:'dryTr',
+    desc:'Магнитопровод, обмотки ВН и НН с литой изоляцией, отводы и система охлаждения.' },
+  { title:'Масляный трансформатор', cat:'transformers', status:'soon', icon:'oilTr',
+    desc:'Бак, активная часть, вводы, расширитель, радиаторы, газовое реле и переключатель отпаек.' },
+  { title:'Контактор', cat:'switching', status:'soon', icon:'contactor',
+    desc:'Главные и вспомогательные контакты, электромагнит, дугогасительная камера.' },
+  { title:'Автоматический выключатель', cat:'switching', status:'soon', icon:'breaker',
+    desc:'Тепловой и электромагнитный расцепители, контактная система, дугогасительная решётка.' },
+  { title:'Тепловое реле', cat:'switching', status:'soon', icon:'relay',
+    desc:'Биметаллические пластины, регулятор уставки, механизм сброса и контакты.' }
+];
+
+const CATS = { all:'Все', machines:'Электрические машины', transformers:'Трансформаторы', switching:'Коммутационные аппараты' };
+
+// ---------- Отрисовка ----------
+const $ = id => document.getElementById(id);
+let cat = 'all';
+
+function renderCats() {
+  $('cats').innerHTML = Object.entries(CATS)
+    .map(([k, v]) => `<button class="chip ${k === cat ? 'on' : ''}" data-cat="${k}">${v}</button>`).join('');
+  $('cats').querySelectorAll('.chip').forEach(b => b.onclick = () => { cat = b.dataset.cat; renderCats(); render(); });
+}
+
+function card(d) {
+  const thumb = d.img ? `<img src="${d.img}" alt="">` : ICONS[d.icon] || '';
+  const ready = d.status === 'ready';
+  const inner = `
+    <div class="thumb">
+      ${thumb}
+      <span class="tag">${CATS[d.cat]}</span>
+      <span class="badge ${ready ? 'ready' : 'soon'}">${ready ? 'Доступно' : 'Скоро'}</span>
+    </div>
+    <div class="body">
+      <h3>${d.title}</h3>
+      <p>${d.desc}</p>
+      <div class="foot">
+        <span class="meta">${d.meta || 'В разработке'}</span>
+        <span class="go">${ready ? 'Открыть →' : 'Готовится'}</span>
+      </div>
+    </div>`;
+  return ready
+    ? `<a class="dev ready" href="${d.href}">${inner}</a>`
+    : `<div class="dev soon" aria-disabled="true">${inner}</div>`;
+}
+
+function render() {
+  const q = $('q').value.trim().toLowerCase();
+  const list = DEVICES.filter(d =>
+    (cat === 'all' || d.cat === cat) &&
+    (!q || (d.title + ' ' + d.desc).toLowerCase().includes(q))
+  );
+  $('grid').innerHTML = list.length
+    ? list.map(card).join('')
+    : `<div class="empty">Ничего не найдено. Попробуйте изменить запрос или категорию.</div>`;
+  const ready = DEVICES.filter(d => d.status === 'ready').length;
+  $('count').textContent = `Доступно ${ready} из ${DEVICES.length}`;
+}
+
+$('q').addEventListener('input', render);
+renderCats();
+render();
+</script>
+</body>
+</html>
