@@ -17,13 +17,7 @@
   }
   @media (max-width: 1280px) { :root { --lw:330px; --rw:250px; } }
 
-#toolbar { position:absolute; top:var(--gap); display:flex; gap:2px; padding:5px; }
-  .tb { display:flex; align-items:center; gap:6px; background:transparent; border:0; font-size:13px;
-        padding:8px 11px; border-radius:10px; cursor:pointer; white-space:nowrap; transition:background .15s; }
-  a.tb { text-decoration:none; color:inherit; }
-  .tb svg { width:16px; height:16px; flex:none; }
-  .tb:hover { background:rgba(255,255,255,.08); }
-  .tb.on { background:var(--accent2); }
+
 
   * { box-sizing:border-box; }
   html, body { margin:0; height:100%; overflow:hidden; }
@@ -114,6 +108,7 @@
   #toolbar { position:absolute; top:var(--gap); display:flex; gap:2px; padding:5px; }
   .tb { display:flex; align-items:center; gap:6px; background:transparent; border:0; font-size:13px;
         padding:8px 11px; border-radius:10px; cursor:pointer; white-space:nowrap; transition:background .15s; }
+  a.tb { text-decoration:none; color:inherit; }
   .tb svg { width:16px; height:16px; flex:none; }
   .tb:hover { background:rgba(255,255,255,.08); }
   .tb.on { background:var(--accent2); }
